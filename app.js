@@ -4,7 +4,8 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const mongoose = require('mongoose');
 const md5 = require('md5')
-// const encrypt = require('mongoose-encryption');
+const bcrypt = require('bcrypt');
+const saltRounds = 10;
 
 const app = express();
 
@@ -34,17 +35,20 @@ app.get('/register', (req,res)=>{
 
 app.post('/register', (req,res) => {
    console.log(req.body);
-   const user = new User({
-      email : req.body.username,
-      password : md5(req.body.password)
+   bcrypt.hash(req.body.password, saltRounds, (err,hash) => {
+         console.log(hash);
+         const user = new User({
+            email : req.body.username,
+            password : hash
+         })
+         user.save((err)=>{
+            if(err){
+               console.log(err);
+            } else {
+               res.render('secrets');
+            }
+         });
    })
-   user.save((err)=>{
-      if(err){
-         console.log(err);
-      } else {
-         res.render('secrets');
-      }
-   });
 })
 
 
@@ -54,7 +58,8 @@ app.get('/login', (req,res)=>{
 
 app.post('/login', (req,res) => {
    const username = req.body.username;
-   const pass = md5(req.body.password);
+   const pass = req.body.password;
+   console.log(pass);
 
    User.findOne({email:username},(err,foundItem)=>{
       if(err){
@@ -62,11 +67,13 @@ app.post('/login', (req,res) => {
       } else {
          console.log("FoundItem : " + foundItem);
          if(foundItem!=null){
-            if(foundItem.password === pass){
-               res.render('secrets');
-            } else {
-               res.send("Wrong username or Password")
-            }
+            bcrypt.compare(pass, foundItem.password, function(err, result) {
+               if(result){
+                  res.render('secrets');
+               } else {
+                  res.send("Wrong username or Password");
+               }
+            })
          }
       }
    })
